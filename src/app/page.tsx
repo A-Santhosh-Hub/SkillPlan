@@ -288,6 +288,26 @@ export default function SkillPlanPage() {
     }
   }
 
+  const getTaskStatus = (block: ScheduleBlock, day: ScheduleDay, liveTime?: string, liveDate?: string): { text: string; color: string } => {
+    if (!liveTime || !liveDate) return { text: '', color: '' };
+    if (block.type !== 'work') return { text: '', color: '' };
+
+    if (block.completed) return { text: 'Completed', color: 'text-green-600 dark:text-green-500' };
+
+    const isToday = day.date === liveDate;
+    if (!isToday) {
+        return (day.date < liveDate) 
+            ? { text: 'Completed', color: 'text-green-600 dark:text-green-500' }
+            : { text: 'Upcoming', color: 'text-gray-500 dark:text-gray-400' };
+    }
+
+    if (liveTime < block.start) return { text: 'Upcoming', color: 'text-gray-500 dark:text-gray-400' };
+    if (liveTime >= block.start && liveTime <= block.end) return { text: 'In Progress', color: 'text-blue-600 dark:text-blue-500' };
+    
+    // This case is handled by the useEffect that auto-completes tasks
+    return { text: 'Pending', color: 'text-yellow-600 dark:text-yellow-500' };
+  };
+
   const todayDateStr = format(new Date(), 'yyyy-MM-dd');
   const defaultTab = appState.schedule?.find(d => d.date === todayDateStr)?.date || appState.schedule?.[0]?.date;
   
@@ -560,19 +580,22 @@ export default function SkillPlanPage() {
                                         <TableRow>
                                             <TableHead className="w-[120px]">Time</TableHead>
                                             <TableHead>Activity</TableHead>
-                                            <TableHead className="text-right w-[120px]">Duration</TableHead>
-                                            <TableHead className="w-[80px] no-print">Status</TableHead>
+                                            <TableHead className="text-right w-[100px]">Duration</TableHead>
+                                            <TableHead className="text-center w-[120px] no-print">Status</TableHead>
+                                            <TableHead className="w-[80px] no-print">Action</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {day.blocks.map((block) => {
+                                            const status = getTaskStatus(block, day, appState.live?.time, appState.live?.date);
                                             const isPast = isToday && appState.live && block.end <= appState.live.time;
+
                                             return (
                                             <TableRow 
                                               key={block.id} 
                                               className={cn(
                                                 block.completed && 'bg-green-100/50 dark:bg-green-900/20',
-                                                isPast && !block.completed && 'bg-blue-100/40 dark:bg-blue-900/10'
+                                                status.text === 'In Progress' && 'bg-blue-100/40 dark:bg-blue-900/20'
                                               )}
                                             >
                                                 <TableCell className="font-mono">{block.start} - {block.end}</TableCell>
@@ -583,6 +606,9 @@ export default function SkillPlanPage() {
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right text-muted-foreground">{block.minutes} min</TableCell>
+                                                <TableCell className={cn("text-center font-medium no-print", status.color)}>
+                                                    {status.text}
+                                                </TableCell>
                                                 <TableCell className="no-print">
                                                   {block.type === 'work' && (
                                                     <div className="flex items-center justify-center">
