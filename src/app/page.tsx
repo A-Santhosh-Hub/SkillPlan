@@ -161,7 +161,7 @@ export default function SkillPlanPage() {
     
     try {
       const { schedule: newSchedule, summary: newSummary } = generateSchedule(appState.skills, currentSettings);
-      setAppState({ ...appState, settings: currentSettings, schedule: newSchedule, summary: newSummary });
+      setAppState(prev => ({ ...prev, settings: currentSettings, schedule: newSchedule, summary: newSummary }));
       toast({ title: "Schedule Generated", description: "Your new learning plan is ready!" });
     } catch (error) {
         if (error instanceof Error) {
@@ -200,24 +200,24 @@ export default function SkillPlanPage() {
   }
 
   const toggleTaskCompletion = (dayDate: string, blockId: string) => {
-    if (!appState.schedule) return;
-    
-    const newSchedule = appState.schedule.map(day => {
-      if (day.date === dayDate) {
-        return {
-          ...day,
-          blocks: day.blocks.map(block => {
-            if (block.id === blockId && block.type === 'work') {
-              return { ...block, completed: !block.completed };
+    setAppState(prev => {
+        if (!prev.schedule) return prev;
+        const newSchedule = prev.schedule.map(day => {
+            if (day.date === dayDate) {
+                return {
+                    ...day,
+                    blocks: day.blocks.map(block => {
+                        if (block.id === blockId && block.type === 'work') {
+                            return { ...block, completed: !block.completed };
+                        }
+                        return block;
+                    })
+                };
             }
-            return block;
-          })
-        };
-      }
-      return day;
+            return day;
+        });
+        return { ...prev, schedule: newSchedule };
     });
-
-    setAppState({ ...appState, schedule: newSchedule });
   };
   
   const getProgress = () => {
@@ -287,7 +287,7 @@ export default function SkillPlanPage() {
                     )} />
                     <div className="grid grid-cols-2 gap-4">
                       <FormField name="priority" control={skillForm.control} render={({ field }) => (
-                        <FormItem><FormLabel>Priority</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger></FormControl><SelectContent><SelectItem value="High">High</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Low">Low</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Priority</FormLabel><Select onValuechange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger></FormControl><SelectContent><SelectItem value="High">High</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Low">Low</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                       )} />
                       <FormField name="estHours" control={skillForm.control} render={({ field }) => (
                         <FormItem><FormLabel>Est. Hours</FormLabel><FormControl><Input type="number" step="0.5" placeholder="e.g., 20" {...field} /></FormControl><FormMessage /></FormItem>

@@ -1,38 +1,39 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
 
-export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
+// A modified version of the use-local-storage-state hook that is client-side only
+// https://github.com/astoilkov/use-local-storage-state/blob/main/src/useLocalStorage.ts
+export function useLocalStorage<T>(
+  key: string,
+  initialState: T | (() => T)
+): [T, Dispatch<SetStateAction<T>>] {
+  const [state, setState] = useState<T>(initialState)
 
   useEffect(() => {
     // This effect runs only on the client, after hydration.
     try {
-      const item = window.localStorage.getItem(key);
-      if (item) {
-        setStoredValue(JSON.parse(item));
-      } else {
-        // This case is for first-time users.
-        window.localStorage.setItem(key, JSON.stringify(initialValue));
-        setStoredValue(initialValue);
+      const item = localStorage.getItem(key)
+      if (item !== null) {
+        setState(JSON.parse(item))
       }
     } catch (error) {
-      console.log(error);
-      setStoredValue(initialValue);
+      console.error(error)
     }
-  }, [key, initialValue]);
+  }, [key])
 
-  const setValue = useCallback((value: T | ((val: T) => T)) => {
-    try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+  const setLocalStorageState = useCallback<Dispatch<SetStateAction<T>>>(
+    (value) => {
+      try {
+        const newValue = typeof value === 'function' ? (value as (prevState: T) => T)(state) : value
+        localStorage.setItem(key, JSON.stringify(newValue))
+        setState(newValue)
+      } catch (error) {
+        console.error(error)
       }
-    } catch (error) {
-      console.error(error);
-    }
-  }, [key, storedValue]);
+    },
+    [key, state]
+  )
 
-  return [storedValue, setValue];
+  return [state, setLocalStorageState]
 }
