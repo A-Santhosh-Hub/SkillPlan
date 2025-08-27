@@ -177,15 +177,19 @@ export default function SkillPlanPage() {
   }, [isClient, appState.settings, settingsForm]);
 
   const addSkill = (values: Omit<Skill, 'id'>) => {
-    setAppState(prev => {
-        const newSkill: Skill = { ...values, id: uuidv4() };
-        if (prev.skills.some(s => s.name.toLowerCase() === newSkill.name.toLowerCase())) {
-            toast({ variant: "destructive", title: "Duplicate Skill", description: "A skill with this name already exists." });
-            return prev;
-        }
-        skillForm.reset();
-        return { ...prev, skills: [...prev.skills, newSkill] };
-    });
+    const newSkill: Skill = { ...values, id: uuidv4() };
+
+    if (appState.skills.some(s => s.name.toLowerCase() === newSkill.name.toLowerCase())) {
+        toast({ variant: "destructive", title: "Duplicate Skill", description: "A skill with this name already exists." });
+        return;
+    }
+
+    setAppState(prev => ({ ...prev, skills: [...prev.skills, newSkill] }));
+    
+    // Only reset the form if the added skill is from the form, not the popular list
+    if (values.name === skillForm.getValues('name')) {
+      skillForm.reset();
+    }
   };
 
   const removeSkill = (id: string) => {
