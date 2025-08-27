@@ -1,4 +1,5 @@
 import { addDays, addMinutes, differenceInDays, format, parse } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 import type { Settings, Skill, ScheduleDay, ScheduleSummary, ScheduleBlock } from './types';
 
 const PRIORITY_WEIGHTS = { High: 3, Medium: 2, Low: 1 };
@@ -95,6 +96,7 @@ export function generateSchedule(
         if (currentTime >= lunchStart && currentTime < lunchEnd) {
            if (blocks.length === 0 || blocks[blocks.length-1].type !== 'lunch') {
             blocks.push({
+                id: uuidv4(),
                 start: minutesToTime(lunchStart),
                 end: minutesToTime(lunchEnd),
                 type: 'lunch',
@@ -120,7 +122,7 @@ export function generateSchedule(
       if (currentTime + blockDuration > windowEnd) {
         const remainingWindowTime = roundTo5(windowEnd - currentTime);
         if (remainingWindowTime > 0) {
-          blocks.push({ start: minutesToTime(currentTime), end: minutesToTime(currentTime + remainingWindowTime), type: 'work', skillId: skill.id, skillName: skill.name, minutes: remainingWindowTime });
+          blocks.push({ id: uuidv4(), start: minutesToTime(currentTime), end: minutesToTime(currentTime + remainingWindowTime), type: 'work', skillId: skill.id, skillName: skill.name, minutes: remainingWindowTime, completed: false });
           dailyAllocation.set(skill.id, skillTimeLeft - remainingWindowTime);
           totalAllocatedToday -= remainingWindowTime;
           totalMinutesPerSkill.set(skill.id, (totalMinutesPerSkill.get(skill.id) || 0) + remainingWindowTime);
@@ -129,7 +131,7 @@ export function generateSchedule(
         break;
       }
 
-      blocks.push({ start: minutesToTime(currentTime), end: minutesToTime(currentTime + blockDuration), type: 'work', skillId: skill.id, skillName: skill.name, minutes: blockDuration });
+      blocks.push({ id: uuidv4(), start: minutesToTime(currentTime), end: minutesToTime(currentTime + blockDuration), type: 'work', skillId: skill.id, skillName: skill.name, minutes: blockDuration, completed: false });
       currentTime += blockDuration;
       dailyAllocation.set(skill.id, skillTimeLeft - blockDuration);
       totalAllocatedToday -= blockDuration;
@@ -137,7 +139,7 @@ export function generateSchedule(
       remainingHours.set(skill.id, (remainingHours.get(skill.id) || 0) - blockDuration);
 
       if (breakMins > 0 && currentTime + breakMins <= windowEnd && totalAllocatedToday > 0) {
-        blocks.push({ start: minutesToTime(currentTime), end: minutesToTime(currentTime + breakMins), type: 'break', minutes: breakMins });
+        blocks.push({ id: uuidv4(), start: minutesToTime(currentTime), end: minutesToTime(currentTime + breakMins), type: 'break', minutes: breakMins });
         currentTime += breakMins;
       }
     }
@@ -147,6 +149,7 @@ export function generateSchedule(
         const lunchStart = timeToMinutes(settings.lunch.start);
         if (lunchStart >= windowStart && lunchStart < windowEnd) {
             blocks.push({
+                id: uuidv4(),
                 start: minutesToTime(lunchStart),
                 end: minutesToTime(lunchStart + settings.lunch.duration),
                 type: 'lunch',
@@ -165,7 +168,7 @@ export function generateSchedule(
         if(blockStart > lastBlockEnd) {
             const bufferMinutes = blockStart - lastBlockEnd;
              if (bufferMinutes > 0) {
-                finalBlocks.push({ start: minutesToTime(lastBlockEnd), end: minutesToTime(blockStart), type: 'buffer', minutes: bufferMinutes });
+                finalBlocks.push({ id: uuidv4(), start: minutesToTime(lastBlockEnd), end: minutesToTime(blockStart), type: 'buffer', minutes: bufferMinutes });
             }
         }
         finalBlocks.push(block);
@@ -175,7 +178,7 @@ export function generateSchedule(
     if (lastBlockEnd < windowEnd) {
         const bufferMinutes = windowEnd - lastBlockEnd;
         if(bufferMinutes > 0) {
-            finalBlocks.push({ start: minutesToTime(lastBlockEnd), end: minutesToTime(windowEnd), type: 'buffer', minutes: bufferMinutes });
+            finalBlocks.push({ id: uuidv4(), start: minutesToTime(lastBlockEnd), end: minutesToTime(windowEnd), type: 'buffer', minutes: bufferMinutes });
         }
     }
 

@@ -7,7 +7,7 @@ import { z } from "zod"
 import { addDays, format, parse } from 'date-fns'
 import { v4 as uuidv4 } from 'uuid';
 import {
-  Briefcase, Calendar, Clock, Coffee, Copy, Download, Moon, Plus, RotateCcw, Save, Sun, Trash2, Utensils
+  Briefcase, Calendar, CheckSquare, Clock, Coffee, Copy, Download, Moon, Plus, RotateCcw, Save, Sun, Trash2, Utensils
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -17,11 +17,13 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { useLocalStorage } from "@/lib/hooks/use-local-storage"
 import { generateSchedule } from "@/lib/scheduler"
 import type { AppState, ScheduleDay, ScheduleSummary, Settings, Skill, ScheduleBlock } from "@/lib/types"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { cn } from "@/lib/utils"
 
 const skillSchema = z.object({
   name: z.string().min(1, "Skill name is required."),
@@ -83,15 +85,23 @@ const defaultAppState: AppState = {
     workBlockMins: 50,
     breakMins: 10,
     lunch: { start: "13:00", duration: 60 }
-  }
+  },
+  schedule: null,
+  summary: null,
 };
 
 
 export default function SkillPlanPage() {
   const { toast } = useToast()
-  const [appState, setAppState] = useLocalStorage<AppState>('skillScheduler:v1:state', defaultAppState);
-  const [schedule, setSchedule] = React.useState<ScheduleDay[] | null>(null);
-  const [summary, setSummary] = React.useState<ScheduleSummary[] | null>(null);
+  const [appState, setAppState] = useLocalStorage<AppState>('skillScheduler:v2:state', defaultAppState);
+  const [currentTime, setCurrentTime] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(format(new Date(), 'HH:mm:ss'));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const skillForm = useForm({
     resolver: zodResolver(skillSchema),
@@ -145,12 +155,9 @@ export default function SkillPlanPage() {
       lunch: values.lunchEnabled ? { start: values.lunchStart!, duration: values.lunchDuration! } : null,
     };
     
-    setAppState({ ...appState, settings: currentSettings });
-
     try {
       const { schedule: newSchedule, summary: newSummary } = generateSchedule(appState.skills, currentSettings);
-      setSchedule(newSchedule);
-      setSummary(newSummary);
+      setAppState({ ...appState, settings: currentSettings, schedule: newSchedule, summary: newSummary });
       toast({ title: "Schedule Generated", description: "Your new learning plan is ready!" });
     } catch (error) {
         if (error instanceof Error) {
@@ -161,8 +168,6 @@ export default function SkillPlanPage() {
 
   const handleReset = () => {
     setAppState(defaultAppState);
-    setSchedule(null);
-    setSummary(null);
     skillForm.reset();
     settingsForm.reset({
         ...defaultAppState.settings,
@@ -174,21 +179,42 @@ export default function SkillPlanPage() {
   };
 
   const handleCopyJson = () => {
-    if (!schedule) {
+    if (!appState.schedule) {
       toast({ variant: "destructive", title: "No Schedule", description: "Generate a schedule first before copying." });
       return;
     }
-    navigator.clipboard.writeText(JSON.stringify({ skills: appState.skills, settings: appState.settings, schedule, summary }, null, 2));
+    navigator.clipboard.writeText(JSON.stringify(appState, null, 2));
     toast({ title: "Copied to Clipboard", description: "Schedule JSON has been copied." });
   };
   
   const handlePrint = () => {
-    if (!schedule) {
+    if (!appState.schedule) {
         toast({ variant: "destructive", title: "No Schedule", description: "Generate a schedule first before printing." });
         return;
     }
     window.print();
   }
+
+  const toggleTaskCompletion = (dayDate: string, blockId: string) => {
+    if (!appState.schedule) return;
+    
+    const newSchedule = appState.schedule.map(day => {
+      if (day.date === dayDate) {
+        return {
+          ...day,
+          blocks: day.blocks.map(block => {
+            if (block.id === blockId && block.type === 'work') {
+              return { ...block, completed: !block.completed };
+            }
+            return block;
+          })
+        };
+      }
+      return day;
+    });
+
+    setAppState({ ...appState, schedule: newSchedule });
+  };
 
   const getIconForBlock = (type: ScheduleBlock['type']) => {
     switch(type) {
@@ -200,6 +226,9 @@ export default function SkillPlanPage() {
     }
   }
 
+  const todayDateStr = format(new Date(), 'yyyy-MM-dd');
+  const defaultTab = appState.schedule?.find(d => d.date === todayDateStr)?.date || appState.schedule?.[0]?.date;
+  
   return (
     <div className="min-h-screen bg-background font-body text-foreground">
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 no-print">
@@ -208,6 +237,13 @@ export default function SkillPlanPage() {
             <Calendar className="h-6 w-6 mr-2 text-primary" />
             <span className="font-bold text-lg">SkillPlan</span>
           </div>
+           <div className="flex-1 justify-center items-center hidden md:flex">
+             {currentTime && (
+                <div className="font-mono text-lg font-semibold bg-muted px-4 py-1 rounded-lg">
+                  {currentTime}
+                </div>
+              )}
+           </div>
           <div className="flex flex-1 items-center justify-end space-x-2">
             <ThemeToggle />
           </div>
@@ -358,31 +394,34 @@ export default function SkillPlanPage() {
           <div className="md:col-span-2 print-p-0">
              <Card className="print-card">
               <CardHeader className="no-print">
-                <CardTitle>3. Your Generated Schedule</CardTitle>
-                <CardDescription>Here is your optimized learning plan. You can now save, copy, or print it.</CardDescription>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>3. Your Generated Schedule</CardTitle>
+                        <CardDescription>Here is your optimized learning plan. You can now save, copy, or print it.</CardDescription>
+                    </div>
+                     <div className="flex flex-wrap gap-2">
+                        <Button onClick={handleReset} variant="outline"><RotateCcw className="mr-2 h-4 w-4" /> Reset</Button>
+                        <Button onClick={handleCopyJson} variant="outline"><Copy className="mr-2 h-4 w-4" /> Copy JSON</Button>
+                        <Button onClick={handlePrint} variant="outline"><Download className="mr-2 h-4 w-4" /> Download as PDF</Button>
+                    </div>
+                </div>
               </CardHeader>
               <CardContent className="print-p-0">
-                <div className="flex flex-wrap gap-2 mb-6 no-print">
-                    <Button onClick={handleReset} variant="outline"><RotateCcw className="mr-2 h-4 w-4" /> Reset</Button>
-                    <Button onClick={handleCopyJson} variant="outline"><Copy className="mr-2 h-4 w-4" /> Copy JSON</Button>
-                    <Button onClick={handlePrint} variant="outline"><Download className="mr-2 h-4 w-4" /> Download as PDF</Button>
-                </div>
-
-                {!schedule ? (
+                {!appState.schedule ? (
                   <div className="text-center py-16 text-muted-foreground">
                     <p>Your schedule will appear here once generated.</p>
                   </div>
                 ) : (
                   <div className="space-y-8">
-                    {summary && (
-                       <div className="print-card">
+                    {appState.summary && (
+                       <div className="print-card p-6">
                         <h3 className="font-bold text-lg mb-2">Schedule Summary</h3>
                          <Table>
                           <TableHeader>
                             <TableRow><TableHead>Skill</TableHead><TableHead className="text-right">Total Time</TableHead><TableHead className="text-right">Allocation</TableHead></TableRow>
                           </TableHeader>
                           <TableBody>
-                            {summary.map(item => (
+                            {appState.summary.map(item => (
                               <TableRow key={item.skillId}>
                                 <TableCell>{item.skillName}</TableCell>
                                 <TableCell className="text-right">{`${Math.floor(item.minutes / 60)}h ${item.minutes % 60}m`}</TableCell>
@@ -394,13 +433,13 @@ export default function SkillPlanPage() {
                       </div>
                     )}
                     
-                    <div className="print-card">
-                       <h3 className="font-bold text-lg mb-2">Daily Timetable</h3>
-                       <Tabs defaultValue={schedule[0].date} className="w-full">
+                    <div className="print-card p-6 pt-0">
+                       <h3 className="font-bold text-lg mb-2 pt-6">Daily Timetable</h3>
+                       <Tabs defaultValue={defaultTab} className="w-full">
                         <TabsList className="no-print">
-                          {schedule.map(day => <TabsTrigger key={day.date} value={day.date}>{format(parse(day.date, 'yyyy-MM-dd', new Date()), 'EEE, MMM d')}</TabsTrigger>)}
+                          {appState.schedule.map(day => <TabsTrigger key={day.date} value={day.date}>{format(parse(day.date, 'yyyy-MM-dd', new Date()), 'EEE, MMM d')}</TabsTrigger>)}
                         </TabsList>
-                        {schedule.map(day => (
+                        {appState.schedule.map(day => (
                           <TabsContent key={day.date} value={day.date} className="print-bg-transparent">
                              <div className="print-card mt-4">
                                 <h4 className="font-semibold text-center mb-4 hidden print:block">{format(parse(day.date, 'yyyy-MM-dd', new Date()), 'EEEE, MMMM d, yyyy')}</h4>
@@ -409,12 +448,13 @@ export default function SkillPlanPage() {
                                         <TableRow>
                                             <TableHead className="w-[120px]">Time</TableHead>
                                             <TableHead>Activity</TableHead>
-                                            <TableHead className="text-right">Duration</TableHead>
+                                            <TableHead className="text-right w-[120px]">Duration</TableHead>
+                                            <TableHead className="w-[80px] no-print">Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {day.blocks.map((block, idx) => (
-                                            <TableRow key={idx}>
+                                        {day.blocks.map((block) => (
+                                            <TableRow key={block.id} className={cn(block.completed && 'bg-green-100/50 dark:bg-green-900/20')}>
                                                 <TableCell className="font-mono">{block.start} - {block.end}</TableCell>
                                                 <TableCell>
                                                   <div className="flex items-center gap-2">
@@ -423,6 +463,18 @@ export default function SkillPlanPage() {
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right text-muted-foreground">{block.minutes} min</TableCell>
+                                                <TableCell className="no-print">
+                                                  {block.type === 'work' && (
+                                                    <div className="flex items-center justify-center">
+                                                      <Checkbox
+                                                        id={`task-${block.id}`}
+                                                        checked={block.completed}
+                                                        onCheckedChange={() => toggleTaskCompletion(day.date, block.id)}
+                                                        aria-label={`Mark ${block.skillName} as complete`}
+                                                      />
+                                                    </div>
+                                                  )}
+                                                </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>

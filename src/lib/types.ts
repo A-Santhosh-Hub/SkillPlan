@@ -23,12 +23,14 @@ export interface Settings {
 }
 
 export interface ScheduleBlock {
+  id: string; // Unique ID for each block
   start: string;
   end: string;
   type: 'work' | 'break' | 'lunch' | 'buffer';
   skillId?: string;
   skillName?: string;
   minutes: number;
+  completed?: boolean;
 }
 
 export interface ScheduleDay {
@@ -46,4 +48,6 @@ export interface ScheduleSummary {
 export interface AppState {
   skills: Skill[];
   settings: Settings;
+  schedule?: ScheduleDay[] | null;
+  summary?: ScheduleSummary[] | null;
 }
