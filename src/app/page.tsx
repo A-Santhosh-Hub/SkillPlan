@@ -102,8 +102,7 @@ export default function SkillPlanPage() {
       }))
     }, 1000);
     return () => clearInterval(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setAppState]);
 
   const skillForm = useForm({
     resolver: zodResolver(skillSchema),
@@ -287,7 +286,7 @@ export default function SkillPlanPage() {
                     )} />
                     <div className="grid grid-cols-2 gap-4">
                       <FormField name="priority" control={skillForm.control} render={({ field }) => (
-                        <FormItem><FormLabel>Priority</FormLabel><Select onValuechange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger></FormControl><SelectContent><SelectItem value="High">High</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Low">Low</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Priority</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger></FormControl><SelectContent><SelectItem value="High">High</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Low">Low</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                       )} />
                       <FormField name="estHours" control={skillForm.control} render={({ field }) => (
                         <FormItem><FormLabel>Est. Hours</FormLabel><FormControl><Input type="number" step="0.5" placeholder="e.g., 20" {...field} /></FormControl><FormMessage /></FormItem>

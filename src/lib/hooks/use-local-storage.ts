@@ -2,38 +2,60 @@
 
 import { useState, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
 
-// A modified version of the use-local-storage-state hook that is client-side only
-// https://github.com/astoilkov/use-local-storage-state/blob/main/src/useLocalStorage.ts
+// A robust, client-side only version of the use-local-storage-state hook
+// Handles server-side rendering gracefully and synchronizes with local storage.
 export function useLocalStorage<T>(
   key: string,
-  initialState: T | (() => T)
+  defaultValue: T | (() => T)
 ): [T, Dispatch<SetStateAction<T>>] {
-  const [state, setState] = useState<T>(initialState)
-
-  useEffect(() => {
-    // This effect runs only on the client, after hydration.
-    try {
-      const item = localStorage.getItem(key)
-      if (item !== null) {
-        setState(JSON.parse(item))
-      }
-    } catch (error) {
-      console.error(error)
+  const [value, setValue] = useState<T>(() => {
+    // This part runs only once on initialization, on the server or client.
+    if (typeof window === 'undefined') {
+      // On the server, always return the default value.
+      return defaultValue instanceof Function ? defaultValue() : defaultValue;
     }
-  }, [key])
+    try {
+      // On the client, try to read from localStorage.
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : (defaultValue instanceof Function ? defaultValue() : defaultValue);
+    } catch (error) {
+      // If reading fails, return the default value.
+      console.warn(`Error reading localStorage key “${key}”:`, error);
+      return defaultValue instanceof Function ? defaultValue() : defaultValue;
+    }
+  });
 
-  const setLocalStorageState = useCallback<Dispatch<SetStateAction<T>>>(
-    (value) => {
-      try {
-        const newValue = typeof value === 'function' ? (value as (prevState: T) => T)(state) : value
-        localStorage.setItem(key, JSON.stringify(newValue))
-        setState(newValue)
-      } catch (error) {
-        console.error(error)
-      }
-    },
-    [key, state]
-  )
+  // This effect synchronizes the state to localStorage whenever it changes.
+  // It only runs on the client.
+  useEffect(() => {
+    // Do not run on the server
+    if (typeof window === 'undefined') {
+        return;
+    }
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.warn(`Error setting localStorage key “${key}”:`, error);
+    }
+  }, [key, value]);
+  
+  // This effect listens for changes in other tabs.
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === key && e.newValue !== null) {
+            try {
+                setValue(JSON.parse(e.newValue));
+            } catch(error) {
+                console.warn(`Error parsing storage event value for key “${key}”:`, error);
+            }
+        }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+        window.removeEventListener('storage', handleStorageChange);
+    };
+}, [key]);
 
-  return [state, setLocalStorageState]
+
+  return [value, setValue];
 }
