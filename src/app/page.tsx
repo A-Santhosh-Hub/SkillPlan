@@ -361,24 +361,27 @@ export default function SkillPlanPage() {
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                      {defaultSkills.map(skill => (
-                        <li key={skill.name} className="flex items-center justify-between p-2 rounded-md bg-secondary/50">
-                          <div>
-                            <span className="font-semibold">{skill.name}</span>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Badge variant={
-                                skill.priority === 'High' ? 'destructive' 
-                                : skill.priority === 'Medium' ? 'secondary' 
-                                : 'outline'
-                              } className="text-xs">{skill.priority}</Badge>
-                              <span>{skill.estHours} hrs</span>
+                      {defaultSkills.map(skill => {
+                        const isAdded = appState.skills.some(s => s.name.toLowerCase() === skill.name.toLowerCase());
+                        return (
+                          <li key={skill.name} className="flex items-center justify-between p-2 rounded-md bg-secondary/50">
+                            <div>
+                              <span className="font-semibold">{skill.name}</span>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Badge variant={
+                                  skill.priority === 'High' ? 'destructive' 
+                                  : skill.priority === 'Medium' ? 'secondary' 
+                                  : 'outline'
+                                } className="text-xs">{skill.priority}</Badge>
+                                <span>{skill.estHours} hrs</span>
+                              </div>
                             </div>
-                          </div>
-                          <Button variant="outline" size="sm" onClick={() => addSkill(skill)}>
-                            <Plus className="mr-2 h-4 w-4" /> Add
-                          </Button>
-                        </li>
-                      ))}
+                            <Button variant="outline" size="sm" onClick={() => addSkill(skill)} disabled={isAdded}>
+                              {isAdded ? 'Added' : <><Plus className="mr-2 h-4 w-4" /> Add</>}
+                            </Button>
+                          </li>
+                        )
+                      })}
                     </ul>
                 </CardContent>
             </Card>
@@ -601,5 +604,3 @@ export default function SkillPlanPage() {
     </div>
   )
 }
-
-    
