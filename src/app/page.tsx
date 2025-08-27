@@ -166,13 +166,15 @@ export default function SkillPlanPage() {
   const watchLunchEnabled = settingsForm.watch('lunchEnabled');
   
   React.useEffect(() => {
-    settingsForm.reset({
-      ...appState.settings,
-      lunchEnabled: !!appState.settings.lunch,
-      lunchStart: appState.settings.lunch?.start || "13:00",
-      lunchDuration: appState.settings.lunch?.duration || 60,
-    })
-  }, [appState.settings, settingsForm]);
+    if (isClient) {
+      settingsForm.reset({
+        ...appState.settings,
+        lunchEnabled: !!appState.settings.lunch,
+        lunchStart: appState.settings.lunch?.start || "13:00",
+        lunchDuration: appState.settings.lunch?.duration || 60,
+      })
+    }
+  }, [isClient, appState.settings, settingsForm]);
 
   const addSkill = (values: Omit<Skill, 'id'>) => {
     setAppState(prev => {
@@ -310,6 +312,10 @@ export default function SkillPlanPage() {
 
   const todayDateStr = format(new Date(), 'yyyy-MM-dd');
   const defaultTab = appState.schedule?.find(d => d.date === todayDateStr)?.date || appState.schedule?.[0]?.date;
+  
+  if (!isClient) {
+    return null; // or a loading spinner
+  }
   
   return (
     <div className="min-h-screen bg-background font-body text-foreground">
