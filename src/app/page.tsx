@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useFieldArray, useForm } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { addDays, format, parse } from 'date-fns'
 import { v4 as uuidv4 } from 'uuid';
@@ -21,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { useLocalStorage } from "@/lib/hooks/use-local-storage"
 import { generateSchedule } from "@/lib/scheduler"
-import type { AppState, ScheduleDay, ScheduleSummary, Settings, Skill, ScheduleBlock } from "@/lib/types"
+import type { LiveAppState, ScheduleDay, ScheduleSummary, Settings, Skill, ScheduleBlock } from "@/lib/types"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 
@@ -62,7 +62,7 @@ const settingsSchema = z.object({
 
 
 const today = new Date();
-const defaultAppState: AppState = {
+const defaultAppState: LiveAppState = {
   skills: [
     { id: uuidv4(), name: "Python", priority: "High", estHours: 40 },
     { id: uuidv4(), name: "Java", priority: "High", estHours: 50 },
@@ -88,19 +88,30 @@ const defaultAppState: AppState = {
   },
   schedule: null,
   summary: null,
+  live: {
+    time: format(new Date(), 'HH:mm:ss'),
+    date: format(new Date(), 'yyyy-MM-dd'),
+  }
 };
 
 
 export default function SkillPlanPage() {
   const { toast } = useToast()
-  const [appState, setAppState] = useLocalStorage<AppState>('skillScheduler:v2:state', defaultAppState);
-  const [currentTime, setCurrentTime] = React.useState<string | null>(null);
+  const [appState, setAppState] = useLocalStorage<LiveAppState>('skillScheduler:v2:live', defaultAppState);
 
   React.useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(format(new Date(), 'HH:mm:ss'));
+      const now = new Date();
+      setAppState(prev => ({
+        ...prev,
+        live: {
+          time: format(now, 'HH:mm:ss'),
+          date: format(now, 'yyyy-MM-dd'),
+        }
+      }))
     }, 1000);
     return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const skillForm = useForm({
@@ -215,6 +226,22 @@ export default function SkillPlanPage() {
 
     setAppState({ ...appState, schedule: newSchedule });
   };
+  
+  const getProgress = () => {
+    if (!appState.live) return 0;
+    const dayStart = parse(appState.settings.startTime, 'HH:mm', new Date());
+    const dayEnd = parse(appState.settings.endTime, 'HH:mm', new Date());
+    const now = parse(appState.live.time, 'HH:mm:ss', new Date());
+
+    const totalSeconds = dayEnd.getTime() - dayStart.getTime();
+    let elapsedSeconds = now.getTime() - dayStart.getTime();
+    
+    if (totalSeconds <= 0) return 0;
+    if (elapsedSeconds < 0) return 0;
+    if (elapsedSeconds > totalSeconds) return 100;
+
+    return (elapsedSeconds / totalSeconds) * 100;
+  }
 
   const getIconForBlock = (type: ScheduleBlock['type']) => {
     switch(type) {
@@ -238,9 +265,9 @@ export default function SkillPlanPage() {
             <span className="font-bold text-lg">SkillPlan</span>
           </div>
            <div className="flex-1 justify-center items-center hidden md:flex">
-             {currentTime && (
+             {appState.live && (
                 <div className="font-mono text-lg font-semibold bg-muted px-4 py-1 rounded-lg">
-                  {currentTime}
+                  {appState.live.time}
                 </div>
               )}
            </div>
@@ -439,10 +466,17 @@ export default function SkillPlanPage() {
                         <TabsList className="no-print">
                           {appState.schedule.map(day => <TabsTrigger key={day.date} value={day.date}>{format(parse(day.date, 'yyyy-MM-dd', new Date()), 'EEE, MMM d')}</TabsTrigger>)}
                         </TabsList>
-                        {appState.schedule.map(day => (
+                        {appState.schedule.map(day => {
+                          const isToday = day.date === appState.live?.date;
+                          const progress = isToday ? getProgress() : (day.date < (appState.live?.date || '') ? 100 : 0);
+
+                          return (
                           <TabsContent key={day.date} value={day.date} className="print-bg-transparent">
                              <div className="print-card mt-4">
                                 <h4 className="font-semibold text-center mb-4 hidden print:block">{format(parse(day.date, 'yyyy-MM-dd', new Date()), 'EEEE, MMMM d, yyyy')}</h4>
+                                {isToday && <div className="w-full h-1 my-2 bg-muted rounded-full no-print">
+                                  <div className="h-full bg-primary rounded-full" style={{width: `${progress}%`}}></div>
+                                </div>}
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -453,8 +487,16 @@ export default function SkillPlanPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {day.blocks.map((block) => (
-                                            <TableRow key={block.id} className={cn(block.completed && 'bg-green-100/50 dark:bg-green-900/20')}>
+                                        {day.blocks.map((block) => {
+                                            const isPast = isToday && appState.live && block.end <= appState.live.time;
+                                            return (
+                                            <TableRow 
+                                              key={block.id} 
+                                              className={cn(
+                                                block.completed && 'bg-green-100/50 dark:bg-green-900/20',
+                                                isPast && !block.completed && 'bg-blue-100/40 dark:bg-blue-900/10'
+                                              )}
+                                            >
                                                 <TableCell className="font-mono">{block.start} - {block.end}</TableCell>
                                                 <TableCell>
                                                   <div className="flex items-center gap-2">
@@ -476,12 +518,12 @@ export default function SkillPlanPage() {
                                                   )}
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                        )})}
                                     </TableBody>
                                 </Table>
                              </div>
                           </TabsContent>
-                        ))}
+                        )})}
                       </Tabs>
                     </div>
 

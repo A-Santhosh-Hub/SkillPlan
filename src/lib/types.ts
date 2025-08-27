@@ -51,3 +51,10 @@ export interface AppState {
   schedule?: ScheduleDay[] | null;
   summary?: ScheduleSummary[] | null;
 }
+
+export interface LiveAppState extends AppState {
+  live?: {
+    time: string;
+    date: string;
+  };
+}
