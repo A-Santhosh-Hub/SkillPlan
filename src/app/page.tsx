@@ -24,6 +24,7 @@ import { generateSchedule } from "@/lib/scheduler"
 import type { LiveAppState, ScheduleDay, ScheduleSummary, Settings, Skill, ScheduleBlock } from "@/lib/types"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 
 const skillSchema = z.object({
   name: z.string().min(1, "Skill name is required."),
@@ -82,6 +83,21 @@ const defaultAppState: LiveAppState = {
     date: format(new Date(), 'yyyy-MM-dd'),
   }
 };
+
+const defaultSkills: Omit<Skill, 'id'>[] = [
+    { name: "Python", priority: "High", estHours: 20 },
+    { name: "Java", priority: "High", estHours: 25 },
+    { name: "C Programming", priority: "Medium", estHours: 15 },
+    { name: "C++", priority: "Medium", estHours: 20 },
+    { name: "SQL", priority: "High", estHours: 10 },
+    { name: "Aptitude", priority: "Medium", estHours: 12 },
+    { name: "3D Modeling", priority: "Low", estHours: 18 },
+    { name: "JavaScript", priority: "High", estHours: 22 },
+    { name: "React", priority: "High", estHours: 16 },
+    { name: "Node.js", priority: "Medium", estHours: 14 },
+    { name: "HTML/CSS", priority: "Medium", estHours: 10 },
+    { name: "Data Structures", priority: "High", estHours: 30 },
+];
 
 
 export default function SkillPlanPage() {
@@ -155,7 +171,7 @@ export default function SkillPlanPage() {
     })
   }, [appState.settings, settingsForm]);
 
-  const addSkill = (values: z.infer<typeof skillSchema>) => {
+  const addSkill = (values: Omit<Skill, 'id'>) => {
     const newSkill: Skill = { ...values, id: uuidv4() };
     setAppState(prev => {
         if (prev.skills.some(s => s.name.toLowerCase() === newSkill.name.toLowerCase())) {
@@ -336,6 +352,35 @@ export default function SkillPlanPage() {
                   )}
                 </div>
               </CardContent>
+            </Card>
+            
+            <Card>
+                <CardHeader>
+                  <CardTitle>Popular Skills</CardTitle>
+                  <CardDescription>Enable popular skills to quickly add them to your schedule.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                      {defaultSkills.map(skill => (
+                        <li key={skill.name} className="flex items-center justify-between p-2 rounded-md bg-secondary/50">
+                          <div>
+                            <span className="font-semibold">{skill.name}</span>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Badge variant={
+                                skill.priority === 'High' ? 'destructive' 
+                                : skill.priority === 'Medium' ? 'secondary' 
+                                : 'outline'
+                              } className="text-xs">{skill.priority}</Badge>
+                              <span>{skill.estHours} hrs</span>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" onClick={() => addSkill(skill)}>
+                            <Plus className="mr-2 h-4 w-4" /> Add
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                </CardContent>
             </Card>
 
             <Card>
@@ -556,3 +601,5 @@ export default function SkillPlanPage() {
     </div>
   )
 }
+
+    
