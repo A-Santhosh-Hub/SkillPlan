@@ -93,13 +93,37 @@ export default function SkillPlanPage() {
     setIsClient(true)
     const timer = setInterval(() => {
       const now = new Date();
-      setAppState(prev => ({
-        ...prev,
-        live: {
-          time: format(now, 'HH:mm:ss'),
-          date: format(now, 'yyyy-MM-dd'),
+      const liveTime = format(now, 'HH:mm:ss');
+      const liveDate = format(now, 'yyyy-MM-dd');
+
+      setAppState(prev => {
+        if (!prev.schedule) {
+          return { ...prev, live: { time: liveTime, date: liveDate } };
         }
-      }))
+
+        const newSchedule = prev.schedule.map(day => {
+          if (day.date === liveDate) {
+            let hasChanged = false;
+            const newBlocks = day.blocks.map(block => {
+              if (block.type === 'work' && !block.completed && block.end <= liveTime) {
+                hasChanged = true;
+                return { ...block, completed: true };
+              }
+              return block;
+            });
+            if (hasChanged) {
+              return { ...day, blocks: newBlocks };
+            }
+          }
+          return day;
+        });
+
+        return {
+          ...prev,
+          live: { time: liveTime, date: liveDate },
+          schedule: newSchedule,
+        };
+      });
     }, 1000);
     return () => clearInterval(timer);
   }, [setAppState]);
