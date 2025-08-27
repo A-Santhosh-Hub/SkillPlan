@@ -87,8 +87,10 @@ const defaultAppState: LiveAppState = {
 export default function SkillPlanPage() {
   const { toast } = useToast()
   const [appState, setAppState] = useLocalStorage<LiveAppState>('skillScheduler:v2:live', defaultAppState);
+  const [isClient, setIsClient] = React.useState(false)
 
   React.useEffect(() => {
+    setIsClient(true)
     const timer = setInterval(() => {
       const now = new Date();
       setAppState(prev => ({
@@ -254,7 +256,7 @@ export default function SkillPlanPage() {
             <span className="font-bold text-lg">SkillPlan</span>
           </div>
            <div className="flex-1 justify-center items-center hidden md:flex">
-             {appState.live && (
+             {isClient && appState.live && (
                 <div className="font-mono text-lg font-semibold bg-muted px-4 py-1 rounded-lg">
                   {appState.live.time}
                 </div>
