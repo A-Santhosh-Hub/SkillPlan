@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { useLocalStorage } from "@/lib/hooks/use-local-storage"
 import { generateSchedule } from "@/lib/scheduler"
-import type { AppState, ScheduleDay, ScheduleSummary, Settings, Skill } from "@/lib/types"
+import type { AppState, ScheduleDay, ScheduleSummary, Settings, Skill, ScheduleBlock } from "@/lib/types"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 const skillSchema = z.object({
@@ -61,7 +61,18 @@ const settingsSchema = z.object({
 
 const today = new Date();
 const defaultAppState: AppState = {
-  skills: [],
+  skills: [
+    { id: uuidv4(), name: "Python", priority: "High", estHours: 40 },
+    { id: uuidv4(), name: "Java", priority: "High", estHours: 50 },
+    { id: uuidv4(), name: "C", priority: "Medium", estHours: 30 },
+    { id: uuidv4(), name: "C++", priority: "Medium", estHours: 35 },
+    { id: uuidv4(), name: "SQL", priority: "High", estHours: 20 },
+    { id: uuidv4(), name: "Aptitude", priority: "Medium", estHours: 25 },
+    { id: uuidv4(), name: "3D Modeling", priority: "Low", estHours: 60 },
+    { id: uuidv4(), name: "React", priority: "High", estHours: 45 },
+    { id: uuidv4(), name: "Node.js", priority: "High", estHours: 40 },
+    { id: uuidv4(), name: "Data Structures", priority: "High", estHours: 50 },
+  ],
   settings: {
     mode: "Daily",
     dailyHours: 6,
