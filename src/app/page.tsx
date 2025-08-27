@@ -134,16 +134,18 @@ export default function SkillPlanPage() {
 
   const addSkill = (values: z.infer<typeof skillSchema>) => {
     const newSkill: Skill = { ...values, id: uuidv4() };
-    if (appState.skills.some(s => s.name.toLowerCase() === newSkill.name.toLowerCase())) {
-        toast({ variant: "destructive", title: "Duplicate Skill", description: "A skill with this name already exists." });
-        return;
-    }
-    setAppState({ ...appState, skills: [...appState.skills, newSkill] });
-    skillForm.reset();
+    setAppState(prev => {
+        if (prev.skills.some(s => s.name.toLowerCase() === newSkill.name.toLowerCase())) {
+            toast({ variant: "destructive", title: "Duplicate Skill", description: "A skill with this name already exists." });
+            return prev;
+        }
+        skillForm.reset();
+        return { ...prev, skills: [...prev.skills, newSkill] };
+    });
   };
 
   const removeSkill = (id: string) => {
-    setAppState({ ...appState, skills: appState.skills.filter(s => s.id !== id) });
+    setAppState(prev => ({ ...prev, skills: prev.skills.filter(s => s.id !== id) }));
   };
   
   const handleGenerate = (values: z.infer<typeof settingsSchema>) => {
