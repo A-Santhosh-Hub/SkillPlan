@@ -82,6 +82,7 @@ const defaultAppState: LiveAppState = {
   live: {
     time: format(new Date(), 'HH:mm:ss'),
     date: format(new Date(), 'yyyy-MM-dd'),
+    currentStation: "Not Started"
   }
 };
 
@@ -117,19 +118,26 @@ export default function SkillPlanPage() {
 
       setAppState(prev => {
         if (!prev.schedule) {
-          return { ...prev, live: { time: liveTime, date: liveDate } };
+          return { ...prev, live: { ...prev.live, time: liveTime, date: liveDate } };
         }
+
+        let newCurrentStation = "Day Ended";
+        let hasChanged = false;
 
         const newSchedule = prev.schedule.map(day => {
           if (day.date === liveDate) {
-            let hasChanged = false;
             const newBlocks = day.blocks.map(block => {
+              if (liveTime >= block.start && liveTime <= block.end) {
+                  newCurrentStation = block.skillName || (block.type.charAt(0).toUpperCase() + block.type.slice(1));
+              }
+
               if (block.type === 'work' && !block.completed && block.end <= liveTime) {
                 hasChanged = true;
                 return { ...block, completed: true };
               }
               return block;
             });
+
             if (hasChanged) {
               return { ...day, blocks: newBlocks };
             }
@@ -137,10 +145,15 @@ export default function SkillPlanPage() {
           return day;
         });
 
+        if (liveTime < prev.settings.startTime) {
+            newCurrentStation = "Not Started";
+        }
+
+
         return {
           ...prev,
-          live: { time: liveTime, date: liveDate },
-          schedule: newSchedule,
+          live: { time: liveTime, date: liveDate, currentStation: newCurrentStation },
+          schedule: hasChanged ? newSchedule : prev.schedule,
         };
       });
     }, 1000);
@@ -186,7 +199,6 @@ export default function SkillPlanPage() {
 
     setAppState(prev => ({ ...prev, skills: [...prev.skills, newSkill] }));
     
-    // Only reset the form if the added skill is from the form, not the popular list
     if (values.name === skillForm.getValues('name')) {
       skillForm.reset();
     }
@@ -336,7 +348,13 @@ export default function SkillPlanPage() {
                 </div>
               )}
            </div>
-          <div className="flex flex-1 items-center justify-end space-x-2">
+          <div className="flex flex-1 items-center justify-end space-x-4">
+             {isClient && appState.live && appState.schedule && (
+                <div className="hidden md:flex items-center gap-2">
+                    <span className="font-semibold text-sm text-muted-foreground">Current Station:</span>
+                    <Badge variant="outline" className="font-semibold text-base">{appState.live.currentStation}</Badge>
+                </div>
+              )}
             <ThemeToggle />
           </div>
         </div>

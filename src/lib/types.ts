@@ -56,5 +56,6 @@ export interface LiveAppState extends AppState {
   live?: {
     time: string;
     date: string;
+    currentStation: string;
   };
 }
