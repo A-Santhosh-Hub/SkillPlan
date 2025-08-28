@@ -118,19 +118,25 @@ export default function SkillPlanPage() {
 
       setAppState(prev => {
         if (!prev.schedule) {
-          return { ...prev, live: { ...prev.live, time: liveTime, date: liveDate } };
+          return { ...prev, live: { ...prev.live, time: liveTime, date: liveDate, currentStation: "Not Started" } };
         }
 
         let newCurrentStation = "Day Ended";
         let hasChanged = false;
 
+        const currentDaySchedule = prev.schedule.find(day => day.date === liveDate);
+        if (currentDaySchedule) {
+            for (const block of currentDaySchedule.blocks) {
+                if (liveTime >= block.start && liveTime <= block.end) {
+                    newCurrentStation = block.skillName || (block.type.charAt(0).toUpperCase() + block.type.slice(1));
+                    break; 
+                }
+            }
+        }
+        
         const newSchedule = prev.schedule.map(day => {
           if (day.date === liveDate) {
             const newBlocks = day.blocks.map(block => {
-              if (liveTime >= block.start && liveTime <= block.end) {
-                  newCurrentStation = block.skillName || (block.type.charAt(0).toUpperCase() + block.type.slice(1));
-              }
-
               if (block.type === 'work' && !block.completed && block.end <= liveTime) {
                 hasChanged = true;
                 return { ...block, completed: true };
@@ -281,7 +287,7 @@ export default function SkillPlanPage() {
   };
   
   const getProgress = () => {
-    if (!appState.live) return 0;
+    if (!isClient || !appState.live) return 0;
     const dayStart = parse(appState.settings.startTime, 'HH:mm', new Date());
     const dayEnd = parse(appState.settings.endTime, 'HH:mm', new Date());
     const now = parse(appState.live.time, 'HH:mm:ss', new Date());
@@ -306,23 +312,25 @@ export default function SkillPlanPage() {
     }
   }
 
-  const getTaskStatus = (block: ScheduleBlock, day: ScheduleDay, liveTime?: string, liveDate?: string): { text: string; color: string } => {
-    if (!liveTime || !liveDate) return { text: '', color: '' };
+  const getTaskStatus = (block: ScheduleBlock, day: ScheduleDay): { text: string; color: string } => {
+    if (!isClient || !appState.live) return { text: '', color: '' };
     if (block.type !== 'work') return { text: '', color: '' };
 
     if (block.completed) return { text: 'Completed', color: 'text-green-600 dark:text-green-500' };
 
-    const isToday = day.date === liveDate;
+    const isToday = day.date === appState.live.date;
     if (!isToday) {
-        return (day.date < liveDate) 
+        return (day.date < appState.live.date) 
             ? { text: 'Completed', color: 'text-green-600 dark:text-green-500' }
             : { text: 'Upcoming', color: 'text-gray-500 dark:text-gray-400' };
     }
 
-    if (liveTime < block.start) return { text: 'Upcoming', color: 'text-gray-500 dark:text-gray-400' };
-    if (liveTime >= block.start && liveTime <= block.end) return { text: 'In Progress', color: 'text-blue-600 dark:text-blue-500' };
+    if (appState.live.time < block.start) return { text: 'Upcoming', color: 'text-gray-500 dark:text-gray-400' };
+    if (appState.live.time >= block.start && appState.live.time <= block.end) return { text: 'In Progress', color: 'text-blue-600 dark:text-blue-500' };
     
-    // This case is handled by the useEffect that auto-completes tasks
+    // This case is handled by the useEffect that auto-completes tasks, but as a fallback:
+    if (appState.live.time > block.end) return { text: 'Completed', color: 'text-green-600 dark:text-green-500' };
+    
     return { text: 'Pending', color: 'text-yellow-600 dark:text-yellow-500' };
   };
 
@@ -359,7 +367,7 @@ export default function SkillPlanPage() {
             )}
           </div>
 
-          <div className="hidden md:flex flex-1 items-center justify-center">
+          <div className="hidden md:flex flex-1 items-center justify-end">
              {isClient && appState.live && (
                 <div className="font-mono text-lg font-semibold bg-muted px-4 py-1 rounded-lg">
                   {appState.live.time}
@@ -529,10 +537,10 @@ export default function SkillPlanPage() {
                           <FormLabel>Include Lunch Break?</FormLabel>
                         </div>
                         <FormControl>
-                           <label className="relative inline-flex items-center cursor-pointer">
-                              <input type="checkbox" checked={field.value} onChange={field.onChange} className="sr-only peer" />
-                              <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-primary/50 dark:peer-focus:ring-primary/80 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-                            </label>
+                           <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
                         </FormControl>
                       </FormItem>
                     )} />
@@ -558,7 +566,7 @@ export default function SkillPlanPage() {
           <div className="md:col-span-2 print-p-0">
              <Card className="print-card">
               <CardHeader className="no-print">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-wrap justify-between items-center gap-4">
                     <div>
                         <CardTitle>3. Your Generated Schedule</CardTitle>
                         <CardDescription>Here is your optimized learning plan. You can now save, copy, or print it.</CardDescription>
@@ -578,26 +586,43 @@ export default function SkillPlanPage() {
                 ) : (
                   <div className="space-y-8">
                     {appState.summary && (
-                       <div className="print-card p-6">
-                        <h3 className="font-bold text-lg mb-2">Schedule Summary</h3>
-                         <Table>
-                          <TableHeader>
-                            <TableRow><TableHead>Skill</TableHead><TableHead className="text-right">Total Time</TableHead><TableHead className="text-right">Allocation</TableHead></TableRow>
-                          </TableHeader>
-                          <TableBody>
+                       <div className="p-6">
+                        <h3 className="font-bold text-lg mb-4">Schedule Summary</h3>
+                         <div className="hidden md:block">
+                           <Table>
+                            <TableHeader>
+                              <TableRow><TableHead>Skill</TableHead><TableHead className="text-right">Total Time</TableHead><TableHead className="text-right">Allocation</TableHead></TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {appState.summary.map(item => (
+                                <TableRow key={item.skillId}>
+                                  <TableCell>{item.skillName}</TableCell>
+                                  <TableCell className="text-right">{`${Math.floor(item.minutes / 60)}h ${item.minutes % 60}m`}</TableCell>
+                                  <TableCell className="text-right">{item.percent.toFixed(1)}%</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                         </div>
+                         <div className="md:hidden space-y-4">
                             {appState.summary.map(item => (
-                              <TableRow key={item.skillId}>
-                                <TableCell>{item.skillName}</TableCell>
-                                <TableCell className="text-right">{`${Math.floor(item.minutes / 60)}h ${item.minutes % 60}m`}</TableCell>
-                                <TableCell className="text-right">{item.percent.toFixed(1)}%</TableCell>
-                              </TableRow>
+                                <div key={item.skillId} className="p-4 rounded-lg border bg-card text-card-foreground shadow-sm">
+                                    <div className="font-semibold text-lg">{item.skillName}</div>
+                                    <div className="flex justify-between items-center mt-2 text-muted-foreground">
+                                        <span>Total Time:</span>
+                                        <span className="font-medium text-foreground">{`${Math.floor(item.minutes / 60)}h ${item.minutes % 60}m`}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center mt-1 text-muted-foreground">
+                                        <span>Allocation:</span>
+                                        <span className="font-medium text-foreground">{item.percent.toFixed(1)}%</span>
+                                    </div>
+                                </div>
                             ))}
-                          </TableBody>
-                        </Table>
+                         </div>
                       </div>
                     )}
                     
-                    <div className="print-card p-6 pt-0">
+                    <div className="p-6 pt-0">
                        <h3 className="font-bold text-lg mb-2 pt-6">Daily Timetable</h3>
                        <Tabs defaultValue={defaultTab} className="w-full">
                         <TabsList className="no-print">
@@ -614,7 +639,9 @@ export default function SkillPlanPage() {
                                 {isToday && <div className="w-full h-1 my-2 bg-muted rounded-full no-print">
                                   <div className="h-full bg-primary rounded-full" style={{width: `${progress}%`}}></div>
                                 </div>}
-                                <Table>
+                                
+                                {/* Desktop View */}
+                                <Table className="hidden md:table">
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead className="w-[120px]">Time</TableHead>
@@ -626,9 +653,7 @@ export default function SkillPlanPage() {
                                     </TableHeader>
                                     <TableBody>
                                         {day.blocks.map((block) => {
-                                            const status = getTaskStatus(block, day, appState.live?.time, appState.live?.date);
-                                            const isPast = isToday && appState.live && block.end <= appState.live.time;
-
+                                            const status = getTaskStatus(block, day);
                                             return (
                                             <TableRow 
                                               key={block.id} 
@@ -653,7 +678,7 @@ export default function SkillPlanPage() {
                                                     <div className="flex items-center justify-center">
                                                       <Checkbox
                                                         id={`task-${block.id}`}
-                                                        checked={block.completed}
+                                                        checked={!!block.completed}
                                                         onCheckedChange={() => toggleTaskCompletion(day.date, block.id)}
                                                         aria-label={`Mark ${block.skillName} as complete`}
                                                       />
@@ -664,6 +689,44 @@ export default function SkillPlanPage() {
                                         )})}
                                     </TableBody>
                                 </Table>
+
+                                {/* Mobile View */}
+                                <div className="md:hidden space-y-4">
+                                  {day.blocks.map(block => {
+                                      const status = getTaskStatus(block, day);
+                                      return (
+                                        <div key={block.id} className={cn(
+                                          "p-4 rounded-lg border shadow-sm",
+                                          block.completed ? 'bg-green-100/50 dark:bg-green-900/20' : 'bg-card',
+                                          status.text === 'In Progress' && 'bg-blue-100/40 dark:bg-blue-900/20'
+                                        )}>
+                                          <div className="flex justify-between items-start">
+                                            <div className="flex items-center gap-3">
+                                              {getIconForBlock(block.type)}
+                                              <div>
+                                                <div className="font-semibold">{block.skillName || (block.type.charAt(0).toUpperCase() + block.type.slice(1))}</div>
+                                                <div className="text-sm text-muted-foreground font-mono">{block.start} - {block.end} ({block.minutes} min)</div>
+                                              </div>
+                                            </div>
+                                            {block.type === 'work' && (
+                                              <Checkbox
+                                                  id={`task-mobile-${block.id}`}
+                                                  checked={!!block.completed}
+                                                  onCheckedChange={() => toggleTaskCompletion(day.date, block.id)}
+                                                  aria-label={`Mark ${block.skillName} as complete`}
+                                                />
+                                            )}
+                                          </div>
+                                          {block.type === 'work' && (
+                                            <div className="mt-3 text-sm">
+                                              <span className="text-muted-foreground">Status: </span>
+                                              <span className={cn("font-medium", status.color)}>{status.text}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )
+                                  })}
+                                </div>
                              </div>
                           </TabsContent>
                         )})}
