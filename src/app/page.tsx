@@ -336,29 +336,40 @@ export default function SkillPlanPage() {
   return (
     <div className="min-h-screen bg-background font-body text-foreground">
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 no-print">
-        <div className="container flex h-14 items-center">
-          <div className="mr-4 flex items-center">
-            <Calendar className="h-6 w-6 mr-2 text-primary" />
-            <span className="font-bold text-lg">SkillPlan</span>
+        <div className="container flex h-auto min-h-14 flex-col md:flex-row md:items-center py-2">
+          <div className="flex justify-between items-center w-full">
+            <div className="flex items-center">
+              <Calendar className="h-6 w-6 mr-2 text-primary" />
+              <span className="font-bold text-lg">SkillPlan</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="md:hidden font-mono text-sm font-semibold bg-muted px-3 py-1 rounded-lg">
+                {isClient && appState.live?.time}
+              </div>
+              <ThemeToggle />
+            </div>
           </div>
-           <div className="flex-1 justify-center items-center hidden md:flex">
+          
+          <div className="flex-1 flex justify-center items-center mt-2 md:mt-0 md:absolute md:left-1/2 md:-translate-x-1/2">
+            {isClient && appState.live && appState.schedule && (
+              <div className="flex items-center gap-2 text-center">
+                  <span className="font-semibold text-sm text-muted-foreground">Current:</span>
+                  <Badge variant="outline" className="font-semibold text-base text-center">{appState.live.currentStation}</Badge>
+              </div>
+            )}
+          </div>
+
+          <div className="hidden md:flex flex-1 items-center justify-center">
              {isClient && appState.live && (
                 <div className="font-mono text-lg font-semibold bg-muted px-4 py-1 rounded-lg">
                   {appState.live.time}
                 </div>
               )}
            </div>
-          <div className="flex flex-1 items-center justify-end space-x-4">
-             {isClient && appState.live && appState.schedule && (
-                <div className="hidden md:flex items-center gap-2">
-                    <span className="font-semibold text-sm text-muted-foreground">Current Station:</span>
-                    <Badge variant="outline" className="font-semibold text-base">{appState.live.currentStation}</Badge>
-                </div>
-              )}
-            <ThemeToggle />
-          </div>
+
         </div>
       </header>
+
 
       <main className="container py-8 print-container">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
